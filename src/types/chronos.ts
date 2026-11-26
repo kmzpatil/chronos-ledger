@@ -115,7 +115,7 @@ export interface StudyCircle {
 }
 
 export interface HybridTelemetry {
-  lane: 'LOCAL_GEMINI_NANO' | 'CLOUD_GEMINI_3_5_FLASH_LITE' | 'LOCAL_OFFLINE_FALLBACK';
+  lane: 'LOCAL_GEMINI_NANO' | 'FIREBASE_AI_LOGIC' | 'LOCAL_OFFLINE_FALLBACK';
   model: string;
   latencyMs: number;
   privateLocalOnly: boolean;

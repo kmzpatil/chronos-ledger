@@ -40,37 +40,11 @@ export function HybridAIDebriefModal({
 
     setSubmitting(true);
     try {
-      if (typeof window !== 'undefined') {
-        const res = await runHybridDebrief(
-          `Verify 2-sentence deep work summary for "${taskLabel}" (${durationMinutes}m): "${trimmed}". Give 1 concise validation sentence.`,
-          { strictLocalAI, taskLabel }
-        );
-
-        if (res.telemetry.lane === 'LOCAL_GEMINI_NANO' || strictLocalAI) {
-          await onVerifiedMint(trimmed, res.text, res.telemetry);
-          return;
-        }
-      }
-
-      const apiRes = await fetch('/api/debrief', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ summary: trimmed, taskLabel, durationMinutes }),
-      });
-
-      const data = await apiRes.json();
-      if (!apiRes.ok) {
-        setError(data.error || 'Debrief validation failed.');
-        setSubmitting(false);
-        return;
-      }
-
-      await onVerifiedMint(trimmed, data.feedback, {
-        lane: 'CLOUD_GEMINI_3_5_FLASH_LITE',
-        model: data.model || 'gemini-3.5-flash-lite',
-        latencyMs: 110,
-        privateLocalOnly: false,
-      });
+      const res = await runHybridDebrief(
+        `Verify 2-sentence deep work summary for "${taskLabel}" (${durationMinutes}m): "${trimmed}". Give 1 concise validation sentence.`,
+        { taskLabel, strictLocalAI }
+      );
+      await onVerifiedMint(trimmed, res.text, res.telemetry);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Unable to verify session debrief.');
       setSubmitting(false);
@@ -82,10 +56,10 @@ export function HybridAIDebriefModal({
       <div className="flex items-start justify-between pb-4 border-b border-[var(--border-hairline)]">
         <div>
           <span className="font-mono-num text-[10px] uppercase tracking-[0.16em] text-[var(--accent-jade)]">
-            PROOF OF WORK REQUIRED
+            ON-DEVICE PROOF OF WORK
           </span>
           <h2 className="text-xl font-bold text-[var(--text-primary)] mt-0.5">
-            Hybrid AI Accomplishment Debrief
+            Gemini Nano Accomplishment Debrief
           </h2>
         </div>
         <span className="font-mono-num text-[11px] font-semibold px-2.5 py-1 rounded-[2px] border border-[var(--accent-jade)]/40 text-[var(--accent-jade)] bg-[var(--accent-jade)]/10">
@@ -95,7 +69,7 @@ export function HybridAIDebriefModal({
 
       <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
         Your {durationMinutes}-minute chamber for{' '}
-        <strong className="text-[var(--text-primary)]">{taskLabel}</strong> is complete. Write a brief 2-sentence summary of what you shipped or solved to authorize ledger minting.
+        <strong className="text-[var(--text-primary)]">{taskLabel}</strong> is complete. Write a brief 2-sentence summary verified on-device via Chrome Gemini Nano to mint credits.
       </p>
 
       <form onSubmit={handleVerifyAndMint} className="space-y-4">
@@ -115,8 +89,8 @@ export function HybridAIDebriefModal({
             <Cpu className="w-3.5 h-3.5 text-[var(--accent-primary)]" strokeWidth={1.5} />
             <span>
               {strictLocalAI
-                ? 'ON-DEVICE GEMINI NANO ONLY'
-                : 'GEMINI NANO // GEMINI-3.5-FLASH-LITE'}
+                ? 'GEMINI NANO // STRICT LOCAL MODE'
+                : 'GEMINI NANO → FIREBASE AI LOGIC'}
             </span>
           </span>
           <span>{summary.trim().length} CHARS</span>

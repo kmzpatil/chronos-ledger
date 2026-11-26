@@ -11,33 +11,10 @@ import {
   UserSettings,
 } from '../types/chronos';
 import { LocalUserStoreDoc } from '../lib/crypto/ledger';
-import {
-  continueAsGuest,
-  registerWithEmail,
-  signInWithEmail,
-  signInWithGoogle,
-  signOutChronos,
-  subscribeAuthState,
-  upgradeGuestWithEmail,
-  upgradeGuestWithGoogle,
-} from '../lib/firebase/auth';
-import {
-  applyAbandonPenalty as fsApplyAbandonPenalty,
-  broadcastToExtension,
-  createStudyCircle,
-  expireActivePassSilently,
-  fetchUserCircles,
-  hydrateUserStore,
-  joinStudyCircle,
-  lockPassEarlyAndRefund,
-  mintFocusCredits as fsMintFocusCredits,
-  pulseCircleFocus as fsPulseCircleFocus,
-  subscribeUserDoc,
-  unlockDomainPass,
-  updateActiveFocusState,
-  updateSettingsWithCooldown,
-} from '../lib/firebase/firestore';
 import { AcousticAlertEvent, acousticEngine } from '../lib/audio/acoustic-engine';
+
+const getAuthApi = () => import('../lib/firebase/auth');
+const getFsApi = () => import('../lib/firebase/firestore');
 
 export type BootStage = 'AUTH' | 'LEDGER' | 'SHIELDS' | 'READY';
 
@@ -147,6 +124,8 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
     if (bootStarted || typeof window === 'undefined') return () => {};
     bootStarted = true;
 
+    let disposed = false;
+    let unsubAuth: (() => void) | null = null;
     let unsubFirestore: (() => void) | null = null;
 
     const unsubAcoustic = acousticEngine.onAlert((evt) => {
@@ -156,52 +135,60 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
       }, 9500);
     });
 
-    const unsubAuth = subscribeAuthState(async (nextProfile) => {
-      if (!nextProfile) {
-        set({
-          profile: null,
-          userDoc: null,
-          circles: [],
-          bootStage: 'READY',
-          bootProgress: 100,
-        });
-        return;
-      }
+    Promise.all([getAuthApi(), getFsApi()]).then(([authApi, fsApi]) => {
+      if (disposed) return;
 
-      set({ profile: nextProfile, bootStage: 'LEDGER', bootProgress: 48 });
+      unsubAuth = authApi.subscribeAuthState(async (nextProfile) => {
+        if (disposed) return;
+        if (!nextProfile) {
+          set({
+            profile: null,
+            userDoc: null,
+            circles: [],
+            bootStage: 'READY',
+            bootProgress: 100,
+          });
+          return;
+        }
 
-      const { doc: hydrated, chainValid } = await hydrateUserStore(nextProfile);
-      acousticEngine.configure({
-        enabled: hydrated.settings.soundEnabled,
-        volume: hydrated.settings.soundVolume,
-        style: hydrated.settings.ringtoneStyle,
-      });
+        set({ profile: nextProfile, bootStage: 'LEDGER', bootProgress: 48 });
 
-      set({
-        ledgerValid: chainValid,
-        bootStage: 'SHIELDS',
-        bootProgress: 82,
-        userDoc: hydrated,
-        lastSyncAt: Date.now(),
-      });
+        const { doc: hydrated, chainValid } = await fsApi.hydrateUserStore(nextProfile);
+        if (disposed) return;
 
-      broadcastToExtension(hydrated.activePass, hydrated.settings.blockedDomains);
-
-      const userCircles = await fetchUserCircles(nextProfile);
-      set({ circles: userCircles });
-
-      setTimeout(() => {
-        set({ bootProgress: 100, bootStage: 'READY' });
-      }, 160);
-
-      if (unsubFirestore) unsubFirestore();
-      unsubFirestore = subscribeUserDoc(nextProfile.uid, (updated) => {
         acousticEngine.configure({
-          enabled: updated.settings.soundEnabled,
-          volume: updated.settings.soundVolume,
-          style: updated.settings.ringtoneStyle,
+          enabled: hydrated.settings.soundEnabled,
+          volume: hydrated.settings.soundVolume,
+          style: hydrated.settings.ringtoneStyle,
         });
-        set({ userDoc: updated, lastSyncAt: Date.now() });
+
+        set({
+          ledgerValid: chainValid,
+          bootStage: 'SHIELDS',
+          bootProgress: 82,
+          userDoc: hydrated,
+          lastSyncAt: Date.now(),
+        });
+
+        fsApi.broadcastToExtension(hydrated.activePass, hydrated.settings.blockedDomains);
+
+        const userCircles = await fsApi.fetchUserCircles(nextProfile);
+        if (disposed) return;
+        set({ circles: userCircles });
+
+        setTimeout(() => {
+          if (!disposed) set({ bootProgress: 100, bootStage: 'READY' });
+        }, 160);
+
+        if (unsubFirestore) unsubFirestore();
+        unsubFirestore = fsApi.subscribeUserDoc(nextProfile.uid, (updated) => {
+          acousticEngine.configure({
+            enabled: updated.settings.soundEnabled,
+            volume: updated.settings.soundVolume,
+            style: updated.settings.ringtoneStyle,
+          });
+          set({ userDoc: updated, lastSyncAt: Date.now() });
+        });
       });
     });
 
@@ -212,6 +199,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
       const remainingMs = doc.activePass.expiresAt - Date.now();
       if (remainingMs <= 0) {
         const label = doc.activePass.label;
+        const { expireActivePassSilently } = await getFsApi();
         const nextDoc = await expireActivePassSilently(doc);
         set({ userDoc: nextDoc, lastSyncAt: Date.now() });
         acousticEngine.playPassExpiredTone(label);
@@ -228,35 +216,44 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
     }, 1000);
 
     return () => {
+      disposed = true;
       bootStarted = false;
       clearInterval(passTimer);
       unsubAcoustic();
-      unsubAuth();
+      if (unsubAuth) unsubAuth();
       if (unsubFirestore) unsubFirestore();
     };
   },
 
   loginGoogle: async () => {
+    const { signInWithGoogle } = await getAuthApi();
     await signInWithGoogle();
     set({ isAuthModalOpen: false });
   },
 
   loginEmail: async (email, password) => {
+    const { signInWithEmail } = await getAuthApi();
     await signInWithEmail(email, password);
     set({ isAuthModalOpen: false });
   },
 
   signupEmail: async (email, password, name) => {
+    const { registerWithEmail } = await getAuthApi();
     await registerWithEmail(email, password, name);
     set({ isAuthModalOpen: false });
   },
 
   loginGuest: async () => {
+    const { continueAsGuest } = await getAuthApi();
     await continueAsGuest();
     set({ isAuthModalOpen: false });
   },
 
   upgradeGoogle: async () => {
+    const [{ upgradeGuestWithGoogle }, { hydrateUserStore }] = await Promise.all([
+      getAuthApi(),
+      getFsApi(),
+    ]);
     const updated = await upgradeGuestWithGoogle();
     set({ profile: updated });
     const { doc: next } = await hydrateUserStore(updated);
@@ -264,6 +261,10 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   },
 
   upgradeEmail: async (email, password, name) => {
+    const [{ upgradeGuestWithEmail }, { hydrateUserStore }] = await Promise.all([
+      getAuthApi(),
+      getFsApi(),
+    ]);
     const updated = await upgradeGuestWithEmail(email, password, name);
     set({ profile: updated });
     const { doc: next } = await hydrateUserStore(updated);
@@ -271,6 +272,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   },
 
   logout: async () => {
+    const { signOutChronos } = await getAuthApi();
     await signOutChronos();
     acousticEngine.stopBrownNoise();
     set({ profile: null, userDoc: null, circles: [], isSettingsOpen: false });
@@ -279,6 +281,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   buyPass: async (domain, minutes, intention) => {
     const current = get().userDoc;
     if (!current) return { ok: false, error: 'Sign in required' };
+    const { unlockDomainPass } = await getFsApi();
     const res = await unlockDomainPass(current, domain, minutes, intention);
     if (res.ok && res.nextDoc) {
       set({ userDoc: res.nextDoc, lastSyncAt: Date.now() });
@@ -290,6 +293,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   lockEarlyAndRefund: async () => {
     const current = get().userDoc;
     if (!current) return { refundedCR: 0, domainLabel: 'Shield' };
+    const { lockPassEarlyAndRefund } = await getFsApi();
     const { nextDoc, refundedCR, domainLabel } = await lockPassEarlyAndRefund(current);
     set({ userDoc: nextDoc, lastSyncAt: Date.now() });
     acousticEngine.playPassExpiredTone(domainLabel);
@@ -315,6 +319,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
       category: 'custom',
     };
     const nextDomains = [...current.settings.blockedDomains, newItem];
+    const { updateSettingsWithCooldown } = await getFsApi();
     const res = await updateSettingsWithCooldown(current, { blockedDomains: nextDomains });
     set({ userDoc: res.nextDoc, lastSyncAt: Date.now() });
     acousticEngine.playTick();
@@ -325,6 +330,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
     const current = get().userDoc;
     if (!current) return { cooldownScheduled: false, message: 'No active session' };
     const nextDomains = current.settings.blockedDomains.filter((d) => d.id !== domainId);
+    const { updateSettingsWithCooldown } = await getFsApi();
     const res = await updateSettingsWithCooldown(current, { blockedDomains: nextDomains });
     set({ userDoc: res.nextDoc, lastSyncAt: Date.now() });
     acousticEngine.playTick();
@@ -334,7 +340,8 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   mintSessionCredits: async (minutes, taskLabel, strictStake, debriefSummary) => {
     const current = get().userDoc;
     if (!current) return { mintedCR: 0, txHash: '' };
-    const res = await fsMintFocusCredits(current, minutes, taskLabel, strictStake, debriefSummary);
+    const { mintFocusCredits, fetchUserCircles } = await getFsApi();
+    const res = await mintFocusCredits(current, minutes, taskLabel, strictStake, debriefSummary);
     set({ userDoc: res.nextDoc, lastSyncAt: Date.now() });
     if (get().profile) {
       const updatedCircles = await fetchUserCircles(get().profile!);
@@ -346,7 +353,8 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   applyAbandonPenalty: async (taskLabel) => {
     const current = get().userDoc;
     if (!current) return 0;
-    const { nextDoc, penaltyCR } = await fsApplyAbandonPenalty(current, taskLabel);
+    const { applyAbandonPenalty } = await getFsApi();
+    const { nextDoc, penaltyCR } = await applyAbandonPenalty(current, taskLabel);
     set({ userDoc: nextDoc, lastSyncAt: Date.now() });
     acousticEngine.playPassExpiredTone('Strict Stake');
     return penaltyCR;
@@ -355,6 +363,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   setFocusSession: async (session) => {
     const current = get().userDoc;
     if (!current) return;
+    const { updateActiveFocusState, fetchUserCircles } = await getFsApi();
     const nextDoc = await updateActiveFocusState(current, session);
     set({ userDoc: nextDoc, lastSyncAt: Date.now() });
     if (get().profile) {
@@ -366,6 +375,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   patchSettings: async (patch) => {
     const current = get().userDoc;
     if (!current) return { cooldownScheduled: false, message: 'No active session' };
+    const { updateSettingsWithCooldown } = await getFsApi();
     const res = await updateSettingsWithCooldown(current, patch);
     acousticEngine.configure({
       enabled: res.nextDoc.settings.soundEnabled,
@@ -403,6 +413,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   refreshCircles: async () => {
     const p = get().profile;
     if (!p) return;
+    const { fetchUserCircles } = await getFsApi();
     const list = await fetchUserCircles(p);
     set({ circles: list });
   },
@@ -410,6 +421,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   createCircle: async (name) => {
     const p = get().profile;
     if (!p) return null;
+    const { createStudyCircle } = await getFsApi();
     const created = await createStudyCircle(p, name);
     set((s) => ({ circles: [created, ...s.circles] }));
     acousticEngine.playTick();
@@ -419,6 +431,7 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   joinCircle: async (code) => {
     const p = get().profile;
     if (!p) return { ok: false, error: 'Sign in required' };
+    const { joinStudyCircle } = await getFsApi();
     const res = await joinStudyCircle(p, code);
     if (res.ok && res.circle) {
       await get().refreshCircles();
@@ -430,7 +443,8 @@ export const useChronosStore = create<ChronosStoreState>((set, get) => ({
   pulseFocus: async (isFocusing, taskTag) => {
     const p = get().profile;
     if (!p) return;
-    await fsPulseCircleFocus(p, isFocusing, taskTag, 0);
+    const { pulseCircleFocus } = await getFsApi();
+    await pulseCircleFocus(p, isFocusing, taskTag, 0);
     await get().refreshCircles();
   },
 }));

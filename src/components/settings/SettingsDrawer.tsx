@@ -331,7 +331,7 @@ export function SettingsDrawer() {
                             <span>Strict Local-Only AI</span>
                           </div>
                           <p className="text-[11px] text-[var(--text-secondary)]">
-                            Forces Chrome Gemini Nano on-device debrief only.
+                            On-device Chrome Gemini Nano (window.ai) with zero cloud API keys.
                           </p>
                         </div>
                         <Switch.Root
@@ -340,8 +340,8 @@ export function SettingsDrawer() {
                             await patchSettings({ strictLocalAI: checked });
                             showToast(
                               checked
-                                ? 'Strict Local-Only AI enabled.'
-                                : 'Hybrid cloud fallback enabled.'
+                                ? 'On-Device Gemini Nano strict lock enabled.'
+                                : 'On-Device Gemini Nano with local deterministic fallback.'
                             );
                           }}
                           className="w-10 h-6 rounded-[4px] panel-surface border border-[var(--border-hairline)] data-[state=checked]:bg-[var(--accent-jade)] relative transition-colors cursor-pointer shrink-0"
