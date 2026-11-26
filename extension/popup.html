@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body {
+      width: 280px;
+      margin: 0;
+      background-color: #0B0B0C;
+      color: #F2F0EB;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #242428;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 12px;
+      background: #131315;
+      border: 1px solid #242428;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #9A9893;
+    }
+    .cta {
+      display: block;
+      margin-top: 12px;
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      background: #D99B26;
+      color: #0B0B0C;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span>Chronos Shield</span>
+    <span style="color: #D99B26; font-family: monospace; font-size: 11px;">MV3</span>
+  </div>
+  <div id="status-box" class="status">Checking shield state...</div>
+  <a class="cta" href="http://localhost:3000/" target="_blank">Open Command Center</a>
+  <script src="popup.js"></script>
+</body>
+</html>

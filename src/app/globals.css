@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+:root {
+  --bg-canvas: #0A0E14;
+  --bg-panel: #11161F;
+  --bg-elevated: #161D28;
+  --bg-recessed: #070A0F;
+  --bg-vault-paper: #F3EFE6;
+  --ink-vault: #0A0E14;
+
+  --border-hairline: rgba(243, 239, 230, 0.10);
+  --border-vault: rgba(10, 14, 20, 0.14);
+
+  --text-primary: #F3EFE6;
+  --text-secondary: #9CA3AF;
+  --text-tertiary: #64748B;
+
+  --accent-primary: #FF4D2D;
+  --accent-jade: #12B886;
+  --accent-ochre: #E5A93B;
+}
+
+[data-theme='daylight'] {
+  --bg-canvas: #F3EFE6;
+  --bg-panel: #EAE4D7;
+  --bg-elevated: #FFFFFF;
+  --bg-recessed: #E2DCCD;
+  --bg-vault-paper: #0A0E14;
+  --ink-vault: #F3EFE6;
+
+  --border-hairline: rgba(10, 14, 20, 0.14);
+  --border-vault: rgba(243, 239, 230, 0.14);
+
+  --text-primary: #0A0E14;
+  --text-secondary: #475569;
+  --text-tertiary: #64748B;
+
+  --accent-primary: #1D4ED8;
+  --accent-jade: #0F9D70;
+  --accent-ochre: #B7791F;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border-hairline);
+  }
+
+  html,
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.01em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+    overflow-x: hidden;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.025em;
+  }
+}
+
+.font-serif-accent {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+.font-mono-num {
+  font-family: var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Blueprint Micro-Grid Background with subtle radial edge fade */
+.bg-horological-grid {
+  background-image:
+    linear-gradient(to right, rgba(243, 239, 230, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(243, 239, 230, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 88% 85% at 50% 40%, #000 60%, transparent 100%);
+}
+
+[data-theme='daylight'] .bg-horological-grid {
+  background-image:
+    linear-gradient(to right, rgba(10, 14, 20, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(10, 14, 20, 0.04) 1px, transparent 1px);
+}
+
+/* Animated 45° Diagonal Drain Stripes */
+@keyframes stripeSlide {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 28px 0;
+  }
+}
+
+.stripe-drain {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 77, 45, 0.14),
+    rgba(255, 77, 45, 0.14) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  background-size: 28px 28px;
+  animation: stripeSlide 1.2s linear infinite;
+}
+
+/* Swiss Banknote Guilloché Texture on Alabaster Vault Card */
+.vault-guilloche {
+  background-color: var(--bg-vault-paper);
+  color: var(--ink-vault);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(10, 14, 20, 0.025) 0px,
+    rgba(10, 14, 20, 0.025) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+[data-theme='daylight'] .vault-guilloche {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(243, 239, 230, 0.04) 0px,
+    rgba(243, 239, 230, 0.04) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+.panel-surface {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-hairline);
+}
+
+.panel-elevated {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-hairline);
+}
+
+.panel-recessed {
+  background-color: var(--bg-recessed);
+  border: 1px solid var(--border-hairline);
+}
+
+select,
+input,
+textarea {
+  color-scheme: dark;
+}
+
+[data-theme='daylight'] select,
+[data-theme='daylight'] input,
+[data-theme='daylight'] textarea {
+  color-scheme: light;
+}
+
+@media (pointer: fine) {
+  html.chronos-cursor-active,
+  html.chronos-cursor-active * {
+    cursor: none !important;
+  }
+}
+
+/* Crisp Architectural Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.45);
+}
