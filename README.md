@@ -2,7 +2,22 @@
 
 > Built for **#BuildHybridAI 2026** (Google / Firebase / Devpost).
 >
+> - **Live App:** https://chronos-ledger.kmzpatil.workers.dev
+> - **Demo Video:** https://youtu.be/fVwFY6N0JPk
+>
 > **Attention is minted, not spent.** Chronos is a personal Focus & Screen Time Economy where deep work mints spendable recreation credits (`CR`), distracted domains (`instagram.com`, `youtube.com/shorts`, `tiktok.com`, `x.com`, `reddit.com`) are enforced by a companion **Manifest V3 Chrome Extension**, and unlocking requires a deliberate **2.0-second press-and-hold vault sequence**. Unused pass time can be locked early for an instant **pro-rata credit refund**.
+
+---
+
+## Screenshots
+
+|             Command Center (Midnight Petrol)             |         Command Center (Paper & Cobalt Daylight)         |
+| :------------------------------------------------------: | :------------------------------------------------------: |
+| ![Command Center](./docs/screenshots/command-center.png) | ![Daylight Theme](./docs/screenshots/daylight-theme.png) |
+
+|        Focus Chamber (60-Tick Horological Dial)        |            Study Circle (Co-Working Pod)             |
+| :----------------------------------------------------: | :--------------------------------------------------: |
+| ![Focus Chamber](./docs/screenshots/focus-chamber.png) | ![Study Circle](./docs/screenshots/study-circle.png) |
 
 ---
 
@@ -28,9 +43,13 @@
 
 ---
 
-## On-Device Hybrid AI (Chrome Gemini Nano)
+## Hybrid AI Architecture (Chrome Gemini Nano + Firebase AI Logic)
 
-Chronos runs **on-device Chrome Built-in AI (`window.ai.languageModel` / Gemini Nano)** as its primary intelligence lane for post-session accomplishment debriefs—requiring **zero cloud API keys** and keeping user notes completely local. When `window.ai` is unavailable in standard browsers, it degrades gracefully to a local deterministic synthesis standby.
+Chronos uses a 3-tier hybrid inference router in [`src/lib/ai/hybrid-router.ts`](./src/lib/ai/hybrid-router.ts) for post-session accomplishment debriefs:
+
+1. **Primary On-Device Lane (Chrome Gemini Nano):** Uses `window.ai.languageModel` when available in Chrome to verify the user's 2-sentence deep-work summary completely locally with zero network latency or external data transmission.
+2. **Cloud Fallback Lane (Firebase AI Logic):** When `window.ai.languageModel` is unavailable and **Strict Local AI** is disabled in Settings, Chronos dynamically imports `firebase/ai` (`getAI`, `GoogleAIBackend`, `getGenerativeModel`) at runtime—authenticated directly via the Firebase project (`armageddon-1351e`) with no raw Gemini API key exposed—to run cloud verification on `gemini-2.5-flash-lite`.
+3. **Offline / Strict-Local Standby:** When offline or when **Strict Local AI** is toggled on, Chronos degrades gracefully to a local deterministic verifier before signing the `HMAC-SHA256` ledger block.
 
 ---
 
